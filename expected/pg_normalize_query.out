@@ -1,0 +1,14 @@
+\set VERBOSITY terse
+CREATE EXTENSION pg_normalize_query;
+SELECT pg_normalize_query($$SELECT * FROM pg_proc WHERE proname = 'pg_normalize_query'$$);
+            pg_normalize_query            
+------------------------------------------
+ SELECT * FROM pg_proc WHERE proname = $1
+(1 row)
+
+SELECT pg_normalize_query($$SELECT oid, relname, relkind FROM pg_class WHERE relkind IN ('r', 'i') LIMIT 10$$);
+                              pg_normalize_query                               
+-------------------------------------------------------------------------------
+ SELECT oid, relname, relkind FROM pg_class WHERE relkind IN ($1, $2) LIMIT $3
+(1 row)
+
