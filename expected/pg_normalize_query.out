@@ -12,3 +12,41 @@ SELECT pg_normalize_query($$SELECT oid, relname, relkind FROM pg_class WHERE rel
  SELECT oid, relname, relkind FROM pg_class WHERE relkind IN ($1, $2) LIMIT $3
 (1 row)
 
+SELECT pg_normalize_query($$SELECT
+	n.nspname, r.relname, r.relkind
+FROM
+	pg_namespace n
+	JOIN pg_class r ON r.relnamespace = n.oid AND r.relkind = 'r'
+WHERE
+	n.nspname ~ '^pg_catalog'$$);
+                          pg_normalize_query                          
+----------------------------------------------------------------------
+ SELECT                                                              +
+         n.nspname, r.relname, r.relkind                             +
+ FROM                                                                +
+         pg_namespace n                                              +
+         JOIN pg_class r ON r.relnamespace = n.oid AND r.relkind = $1+
+ WHERE                                                               +
+         n.nspname ~ $2
+(1 row)
+
+SELECT pg_normalize_query('SELECT * FROM pg_attribute WHERE attname = $$relkind$$');
+              pg_normalize_query               
+-----------------------------------------------
+ SELECT * FROM pg_attribute WHERE attname = $1
+(1 row)
+
+SELECT pg_normalize_query($$UPDATE foo SET f1=now(), f2='xxx', f3=current_timestamp WHERE id=1 AND f1 > now() - interval '1 day'$$);
+                                      pg_normalize_query                                       
+-----------------------------------------------------------------------------------------------
+ UPDATE foo SET f1=now(), f2=$1, f3=current_timestamp WHERE id=$2 AND f1 > now() - interval $3
+(1 row)
+
+SELECT pg_normalize_query($$DELETE FROM foo WHERE id IN (SELECT id FROM bar WHERE f1 <= now() - '1 week'::interval)$$);
+                                pg_normalize_query                                 
+-----------------------------------------------------------------------------------
+ DELETE FROM foo WHERE id IN (SELECT id FROM bar WHERE f1 <= now() - $1::interval)
+(1 row)
+
+SELECT pg_normalize_query($$SELECT * FROM foo WHERE$$); -- Should fail due to syntax error
+ERROR:  syntax error at end of input at character 24
