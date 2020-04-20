@@ -46,12 +46,12 @@ typedef struct pgnqConstLocations
 	int			highest_extern_param_id;
 } pgnqConstLocations;
 
-static int comp_location(const void *a, const void *b);
-static void fill_in_constant_lengths(pgnqConstLocations *jstate, const char *query);
-static char *generate_normalized_query(pgnqConstLocations *jstate, const char *query,
+static int pgnq_comp_location(const void *a, const void *b);
+static void pgnq_fill_in_constant_lengths(pgnqConstLocations *jstate, const char *query);
+static char *pgnq_build_normalized_query(pgnqConstLocations *jstate, const char *query,
 						  int query_loc, int *query_len_p);
-static void record_const_location(pgnqConstLocations *jstate, int location);
-static bool const_record_walker(Node *node, pgnqConstLocations *jstate);
+static void pgnq_record_const_location(pgnqConstLocations *jstate, int location);
+static bool pgnq_const_record_walker(Node *node, pgnqConstLocations *jstate);
 
 PG_FUNCTION_INFO_V1(pg_normalize_query);
 
@@ -77,21 +77,21 @@ pg_normalize_query(PG_FUNCTION_ARGS)
 	jstate.highest_extern_param_id = 0;
 
 	/* Walk tree and record const locations */
-	const_record_walker((Node *) tree, &jstate);
+	pgnq_const_record_walker((Node *) tree, &jstate);
 
 	/* Normalize query */
 	query_len = (int) strlen(sql);
-	out = strdup(generate_normalized_query(&jstate, sql, 0, &query_len));
+	out = strdup(pgnq_build_normalized_query(&jstate, sql, 0, &query_len));
 	out_t = cstring_to_text(out);
 	
 	PG_RETURN_TEXT_P(out_t);
 }
 
 /*
- * comp_location: comparator for qsorting pgnqLocationLen structs by location
+ * pgnq_comp_location: comparator for qsorting pgnqLocationLen structs by location
  */
 static int
-comp_location(const void *a, const void *b)
+pgnq_comp_location(const void *a, const void *b)
 {
 	int			l = ((const pgnqLocationLen *) a)->location;
 	int			r = ((const pgnqLocationLen *) b)->location;
@@ -127,7 +127,7 @@ comp_location(const void *a, const void *b)
  * reason for a constant to start with a '-'.
  */
 static void
-fill_in_constant_lengths(pgnqConstLocations *jstate, const char *query)
+pgnq_fill_in_constant_lengths(pgnqConstLocations *jstate, const char *query)
 {
 	pgnqLocationLen *locs;
 	core_yyscan_t yyscanner;
@@ -143,7 +143,7 @@ fill_in_constant_lengths(pgnqConstLocations *jstate, const char *query)
 	 */
 	if (jstate->clocations_count > 1)
 		qsort(jstate->clocations, jstate->clocations_count,
-			  sizeof(pgnqLocationLen), comp_location);
+			  sizeof(pgnqLocationLen), pgnq_comp_location);
 	locs = jstate->clocations;
 
 	/* initialize the flex scanner --- should match raw_parser() */
@@ -242,7 +242,7 @@ fill_in_constant_lengths(pgnqConstLocations *jstate, const char *query)
  * Returns a palloc'd string.
  */
 static char *
-generate_normalized_query(pgnqConstLocations *jstate, const char *query,
+pgnq_build_normalized_query(pgnqConstLocations *jstate, const char *query,
 						  int query_loc, int *query_len_p)
 {
 	char	   *norm_query;
@@ -259,7 +259,7 @@ generate_normalized_query(pgnqConstLocations *jstate, const char *query,
 	 * Get constants' lengths (core system only gives us locations).  Note
 	 * this also ensures the items are sorted by location.
 	 */
-	fill_in_constant_lengths(jstate, query);
+	pgnq_fill_in_constant_lengths(jstate, query);
 
 	/*
 	 * Allow for $n symbols to be longer than the constants they replace.
@@ -321,7 +321,7 @@ generate_normalized_query(pgnqConstLocations *jstate, const char *query,
 	return norm_query;
 }
 
-static void record_const_location(pgnqConstLocations *jstate, int location)
+static void pgnq_record_const_location(pgnqConstLocations *jstate, int location)
 {
 	/* -1 indicates unknown or undefined location */
 	if (location >= 0)
@@ -336,13 +336,13 @@ static void record_const_location(pgnqConstLocations *jstate, int location)
 						 sizeof(pgnqLocationLen));
 		}
 		jstate->clocations[jstate->clocations_count].location = location;
-		/* initialize lengths to -1 to simplify fill_in_constant_lengths */
+		/* initialize lengths to -1 to simplify pgnq_fill_in_constant_lengths */
 		jstate->clocations[jstate->clocations_count].length = -1;
 		jstate->clocations_count++;
 	}
 }
 
-static bool const_record_walker(Node *node, pgnqConstLocations *jstate)
+static bool pgnq_const_record_walker(Node *node, pgnqConstLocations *jstate)
 {
 
 	if (node == NULL)
@@ -352,7 +352,7 @@ static bool const_record_walker(Node *node, pgnqConstLocations *jstate)
 
 	if (IsA(node, A_Const))
 	{
-		record_const_location(jstate, castNode(A_Const, node)->location);
+		pgnq_record_const_location(jstate, castNode(A_Const, node)->location);
 	}
 	else if (IsA(node, ParamRef))
 	{
@@ -362,34 +362,34 @@ static bool const_record_walker(Node *node, pgnqConstLocations *jstate)
 	}
 	else if (IsA(node, DefElem))
 	{
-		return const_record_walker((Node *) ((DefElem *) node)->arg, jstate);
+		return pgnq_const_record_walker((Node *) ((DefElem *) node)->arg, jstate);
 	}
 #if PG_VERSION_NUM >= 100000
 	else if (IsA(node, RawStmt))
 	{
-		return const_record_walker((Node *) ((RawStmt *) node)->stmt, jstate);
+		return pgnq_const_record_walker((Node *) ((RawStmt *) node)->stmt, jstate);
 	}
 #endif
 	else if (IsA(node, VariableSetStmt))
 	{
-		return const_record_walker((Node *) ((VariableSetStmt *) node)->args, jstate);
+		return pgnq_const_record_walker((Node *) ((VariableSetStmt *) node)->args, jstate);
 	}
 	else if (IsA(node, CopyStmt))
 	{
-		return const_record_walker((Node *) ((CopyStmt *) node)->query, jstate);
+		return pgnq_const_record_walker((Node *) ((CopyStmt *) node)->query, jstate);
 	}
 	else if (IsA(node, ExplainStmt))
 	{
-		return const_record_walker((Node *) ((ExplainStmt *) node)->query, jstate);
+		return pgnq_const_record_walker((Node *) ((ExplainStmt *) node)->query, jstate);
 	}
 	else if (IsA(node, AlterRoleStmt))
 	{
-		return const_record_walker((Node *) ((AlterRoleStmt *) node)->options, jstate);
+		return pgnq_const_record_walker((Node *) ((AlterRoleStmt *) node)->options, jstate);
 	}
 	else if (IsA(node, DeclareCursorStmt))
 	{
-		return const_record_walker((Node *) ((DeclareCursorStmt *) node)->query, jstate);
+		return pgnq_const_record_walker((Node *) ((DeclareCursorStmt *) node)->query, jstate);
 	}
 
-	return raw_expression_tree_walker(node, const_record_walker, (void*) jstate);
+	return raw_expression_tree_walker(node, pgnq_const_record_walker, (void*) jstate);
 }
