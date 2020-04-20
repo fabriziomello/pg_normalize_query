@@ -3,6 +3,12 @@ PostgreSQL extension to normalize a SQL query similar to [pg_stat_statements](ht
 
 This code was extracted from [libpg_query](https://github.com/lfittl/libpg_query/blob/10-latest/src/pg_query_normalize.c) and transformed into a PostgreSQL extension.
 
+## Supported PostgreSQL versions
+
+The aim of the project is support as many community-supported major versions of Postgres as possible. Currently, the following versions of PostgreSQL are supported:
+
+9.4, 9.5, 9.6, 10, 11, 12 and master (pre-13).
+
 ## Installation
 
 ```sh

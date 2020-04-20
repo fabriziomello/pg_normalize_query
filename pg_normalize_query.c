@@ -12,6 +12,13 @@
 
 PG_MODULE_MAGIC;
 
+/* Define scanner_init parameters following the PostgreSQL versions */
+#if PG_VERSION_NUM >= 120000
+#define PGNQ_SCANNER_INIT_ARGS query, &yyextra, &ScanKeywords, ScanKeywordTokens
+#else
+#define PGNQ_SCANNER_INIT_ARGS query, &yyextra, ScanKeywords, NumScanKeywords
+#endif
+
 /*
  * Struct for tracking locations/lengths of constants during normalization
  */
@@ -140,10 +147,7 @@ fill_in_constant_lengths(pgnqConstLocations *jstate, const char *query)
 	locs = jstate->clocations;
 
 	/* initialize the flex scanner --- should match raw_parser() */
-	yyscanner = scanner_init(query,
-							 &yyextra,
-							 &ScanKeywords,
-							 ScanKeywordTokens);
+	yyscanner = scanner_init(PGNQ_SCANNER_INIT_ARGS);
 
 	/* Search for each constant, in sequence */
 	for (i = 0; i < jstate->clocations_count; i++)
@@ -360,10 +364,12 @@ static bool const_record_walker(Node *node, pgnqConstLocations *jstate)
 	{
 		return const_record_walker((Node *) ((DefElem *) node)->arg, jstate);
 	}
+#if PG_VERSION_NUM >= 100000
 	else if (IsA(node, RawStmt))
 	{
 		return const_record_walker((Node *) ((RawStmt *) node)->stmt, jstate);
 	}
+#endif
 	else if (IsA(node, VariableSetStmt))
 	{
 		return const_record_walker((Node *) ((VariableSetStmt *) node)->args, jstate);
