@@ -344,9 +344,13 @@ static void pgnq_record_const_location(pgnqConstLocations *jstate, int location)
 
 static bool pgnq_const_record_walker(Node *node, pgnqConstLocations *jstate)
 {
+	Node	*nodeReturn = NULL;
 
 	if (node == NULL)
 		return false;
+
+	/* Guard against stack overflow due to overly complex expressions */
+	check_stack_depth();
 
 	switch (nodeTag(node))
 	{
@@ -360,31 +364,41 @@ static bool pgnq_const_record_walker(Node *node, pgnqConstLocations *jstate)
 			break;
 
 		case T_DefElem:
-			return pgnq_const_record_walker((Node *) ((DefElem *) node)->arg, jstate);
+			nodeReturn = (Node *) ((DefElem *) node)->arg;
+			break;
 
 #if PG_VERSION_NUM >= 100000
 		case T_RawStmt:
-			return pgnq_const_record_walker((Node *) ((RawStmt *) node)->stmt, jstate);
+			nodeReturn = (Node *) ((RawStmt *) node)->stmt;
+			break;
 #endif
 
 		case T_VariableSetStmt:
-			return pgnq_const_record_walker((Node *) ((VariableSetStmt *) node)->args, jstate);
+			nodeReturn = (Node *) ((VariableSetStmt *) node)->args;
+			break;
 
 		case T_CopyStmt:
-			return pgnq_const_record_walker((Node *) ((CopyStmt *) node)->query, jstate);
+			nodeReturn = (Node *) ((CopyStmt *) node)->query;
+			break;
 
 		case T_ExplainStmt:
-			return pgnq_const_record_walker((Node *) ((ExplainStmt *) node)->query, jstate);
+			nodeReturn = (Node *) ((ExplainStmt *) node)->query;
+			break;
 
 		case T_AlterRoleStmt:
-			return pgnq_const_record_walker((Node *) ((AlterRoleStmt *) node)->options, jstate);
+			nodeReturn = (Node *) ((AlterRoleStmt *) node)->options;
+			break;
 
 		case T_DeclareCursorStmt:
-			return pgnq_const_record_walker((Node *) ((DeclareCursorStmt *) node)->query, jstate);
+			nodeReturn = (Node *) ((DeclareCursorStmt *) node)->query;
+			break;
 
 		default:
 			break;
 	}
+
+	if (nodeReturn != NULL)
+		return pgnq_const_record_walker((Node *) nodeReturn, jstate);
 
 	return raw_expression_tree_walker(node, pgnq_const_record_walker, (void*) jstate);
 }
