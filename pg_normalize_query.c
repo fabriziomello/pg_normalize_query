@@ -1,6 +1,7 @@
 #include "postgres.h"
 
 #include "funcapi.h"
+#include "miscadmin.h"
 #include "nodes/nodeFuncs.h"
 #include "parser/analyze.h"
 #include "parser/parser.h"
