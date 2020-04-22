@@ -1,5 +1,5 @@
 # pg_normalize_query
-PostgreSQL extension to normalize a SQL query similar to [pg_stat_statements](https://www.postgresql.org/docs/current/pgstatstatements.html).
+PostgreSQL extension to normalize SQL statements similar to [pg_stat_statements](https://www.postgresql.org/docs/current/pgstatstatements.html).
 
 This code was extracted from [libpg_query](https://github.com/lfittl/libpg_query/blob/10-latest/src/pg_query_normalize.c) and transformed into a PostgreSQL extension.
 
